@@ -109,7 +109,7 @@ GRset.quantile <- preprocessQuantile(RGSet, fixOutliers = TRUE,
                                      quantileNormalize = TRUE, stratified = TRUE, 
                                      mergeManifest = FALSE, sex = NULL)
 
-### after normalization PCA
+### After normalization PCA
 
 PCA_norm <- prcomp(t(getBeta(GRset.quantile)), scale. = FALSE)
 percentVar <- round(100*PCA_norm$sdev^2/sum(PCA_norm$sdev^2),1)
@@ -300,7 +300,7 @@ names(Probe_annotation.n)[1] <- "Probe"
 names(Probe_annotation.n)[2] <- "Probe_status"
 
 
-###Heatmap for 100 probes with promoter annotation
+### Heatmap for 100 probes with promoter annotation
 names(Probe_annotation)[1] <- "Probe"
 dmp_ordered <- arrange(dmp_edit, qval)[1:100,]
 hundred_genes_raw_promoter <- merge(hundred_genes_raw, Probe_annotation.n, by="Probe")
@@ -342,4 +342,97 @@ ggplot(dataGG_norm, aes(PC1, PC2)) +
   theme(plot.title = element_text(hjust = 0.5))+
   scale_color_brewer(palette = "Paired")+
   theme().title = »
+  
+  ### Annotatr
+library(annotatr)
+library("AnnotationHub")
+annots <- c('hg19_genes_promoters')
+annots_gr = build_annotations(genome = 'hg19', annotations = annots)
+anno <- build_annotations(genome = "hg19", annotations = "hg19_basicgenes")
+dm_annotated = annotate_regions(
+  regions = gr,
+  annotations = annots_gr,
+  ignore.strand = TRUE,
+  quiet = FALSE)
+print(dm_annotated)
+df_dm_annotated = data.frame(dm_annotated)
+df_dm_annotated_annotr_unique <- unique(df_dm_annotated)
+print(head(df_dm_annotated))
+annotatr_probes <- dm_annotated@ranges
+cpg_annotatr <- annotatr_probes@NAMES
+cpg_annotatr.df <- data.frame(cpg_annotatr)
+
+### Selecting cpg in promoter region with annottar
+colnames(cpg_annotatr.df) <- "Probe"
+betaValue.n <- data.frame(BetaValue)
+betaValue.edit <- cbind(rownames(BetaValue), data.frame(BetaValue, row.names=NULL))
+colnames(betaValue.edit)[colnames(betaValue.edit) == "rownames(BetaValue)"] <- "Probe"
+promoter_selected.annotatr <- merge(cpg_annotatr.df, betaValue.edit, by="Probe")
+
+### PCA for probes in only promoter region
+dmp_ordered <- arrange(dmp_edit, qval)
+dmp_sorted_genes.annotatr <- merge(promoter_selected.annotatr, dmp_ordered, by="Probe")
+dmp_sorted_genes.na.annotatr <- na.omit(dmp_sorted_genes.annotatr)
+dmp_sorted_genes.na.annotatr_unique <- unique(dmp_sorted_genes.na.annotatr)
+thousand_genes_ordered.annotatr <- arrange(dmp_sorted_genes.na.annotatr_unique, qval)[1:1000,]
+thousand_genes_promoter.annotatr <- subset(thousand_genes_ordered.annotatr, select = -c(intercept, beta, t, pval, qval))
+thousand_genes_promoter_annotatr.m <- data.frame(thousand_genes_promoter.annotatr, row.names = 1)
+PCA_raw_promoter.annotatr <- prcomp(t(thousand_genes_promoter_annotatr.m), scale. = FALSE)
+percentVar <- round(100*PCA_raw_promoter.annotatr$sdev^2/sum(PCA_raw_promoter.annotatr$sdev^2),1)
+sd_ratio <- sqrt(percentVar[2] / percentVar[1])
+dataGG <- data.frame(PC1 = PCA_raw_promoter.annotatr$x[,1], PC2 = PCA_raw_promoter.annotatr$x[,2],
+                     Cell_type = phenoData$Sample_Group)
+
+ggplot(dataGG, aes(PC1, PC2)) +
+  geom_point(aes(colour = Cell_type)) +
+  ggtitle("PCA plot of the 1000 most variable probes in promoter region by annotatr") +
+  xlab(paste0("PC1, VarExp: ", percentVar[1], "%")) +
+  ylab(paste0("PC2, VarExp: ", percentVar[2], "%")) +
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_color_brewer(palette = "Paired")
+
+### Homo.sapiens package promoter selection
+library(Homo.sapiens)
+txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene
+proms <- promoters(txdb, upstream=2000,  downstream=200)
+dm_annotated_h = annotate_regions(
+  regions = gr,
+  annotations = proms,
+  ignore.strand = TRUE,
+  quiet = FALSE)
+dm_annotated_h.unique <- unique(dm_annotated_h)
+df_dm_annotated_h.unique = data.frame(dm_annotated_h.unique)
+print(head(df_dm_annotated_h))
+homosapiens_probes <- dm_annotated_h.unique@ranges
+cpg_homosapiens <- homosapiens_probes@NAMES
+cpg_homosapiens.df <- data.frame(cpg_homosapiens)
+
+### Selecting cpg in promoter region with annottar
+colnames(cpg_homosapiens.df) <- "Probe"
+betaValue.n <- data.frame(BetaValue)
+betaValue.edit <- cbind(rownames(BetaValue), data.frame(BetaValue, row.names=NULL))
+colnames(betaValue.edit)[colnames(betaValue.edit) == "rownames(BetaValue)"] <- "Probe"
+promoter_selected.homosapiens <- merge(cpg_homosapiens.df, betaValue.edit, by="Probe")
+
+### PCA for probes in only promoter region
+dmp_ordered <- arrange(dmp_edit, qval)
+dmp_sorted_genes.homosapiens <- merge(promoter_selected.homosapiens, dmp_ordered, by="Probe")
+dmp_sorted_genes.na.homosapiens <- na.omit(dmp_sorted_genes.homosapiens)
+dmp_sorted_genes.na.homosapiens_unique <- unique(dmp_sorted_genes.na.homosapiens)
+thousand_genes_ordered.homosapiens <- arrange(dmp_sorted_genes.na.homosapiens_unique, qval)[1:1000,]
+thousand_genes_promoter.homosapiens <- subset(thousand_genes_ordered.homosapiens, select = -c(intercept, beta, t, pval, qval))
+thousand_genes_promoter_homosapiens.m <- data.frame(thousand_genes_promoter.homosapiens, row.names = 1)
+PCA_raw_promoter.homosapiens <- prcomp(t(thousand_genes_promoter_homosapiens.m), scale. = FALSE)
+percentVar <- round(100*PCA_raw_promoter.homosapiens$sdev^2/sum(PCA_raw_promoter.homosapiens$sdev^2),1)
+sd_ratio <- sqrt(percentVar[2] / percentVar[1])
+dataGG <- data.frame(PC1 = PCA_raw_promoter.homosapiens$x[,1], PC2 = PCA_raw_promoter.homosapiens$x[,2],
+                     Cell_type = phenoData$Sample_Group)
+
+ggplot(dataGG, aes(PC1, PC2)) +
+  geom_point(aes(colour = Cell_type)) +
+  ggtitle("PCA plot of the 1000 most variable probes in promoter region by Homo.sapiens") +
+  xlab(paste0("PC1, VarExp: ", percentVar[1], "%")) +
+  ylab(paste0("PC2, VarExp: ", percentVar[2], "%")) +
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_color_brewer(palette = "Paired")
 
