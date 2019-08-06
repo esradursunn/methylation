@@ -407,7 +407,7 @@ homosapiens_probes <- dm_annotated_h.unique@ranges
 cpg_homosapiens <- homosapiens_probes@NAMES
 cpg_homosapiens.df <- data.frame(cpg_homosapiens)
 
-### Selecting cpg in promoter region with annottar
+### Selecting cpg in promoter region with homo.sapiens package
 colnames(cpg_homosapiens.df) <- "Probe"
 betaValue.n <- data.frame(BetaValue)
 betaValue.edit <- cbind(rownames(BetaValue), data.frame(BetaValue, row.names=NULL))
